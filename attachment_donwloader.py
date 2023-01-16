@@ -1,5 +1,7 @@
 """
-Rotina repsonsável porr fazer o download do aquivo de vols do administrador dentro da pasta do gerencial.
+Author: Victor Gimenes
+Date: 08/11/2022
+Módulo responsável por armazenar as funções de download de aquivos em anexos de e-mails.
 """
 # Ignoras warnings desnecessários
 import warnings
@@ -16,20 +18,20 @@ import time
 import sys
 
 # Importando módulo com meu logger customizado
-sys.path.insert(0,r'T:\GESTAO\MACRO\DEV\LIBRARIES')
-from mail_man import post_messages as pm 
 from bz_holidays import scrape_anbima_holidays as bz 
 
 # Criando as variáveis globais
-global TITTLE, PATH, FOLDER, ATTACHMENT, logger
+global TITLE, PATH, FOLDER, ATTACHMENT, FILE_NAME, FILE_EXT
 # Instanciando as variáveis relativas a rotina
-TITTLE = 'BTG PACTUAL - BRL OPTION PRICES' # Título do E-mail
-PATH = r'T:\GESTAO\MACRO\DEV\5.GERENCIAL\Arquivos BTG' # Pasta onde será salvo
-FOLDER = 'BTG_BACK' # Pasta dentro da Caixa de Entrada
-ATTACHMENT = 7 # Qual a posição dele dentro dos anexos do e-mail (tentativa e erro)
+TITLE = 'enter the title here!' # Título do E-mail 
+PATH = 'enter the path here!' # Pasta onde será salvo  
+FOLDER = 'enter the folder here' # Pasta dentro da Caixa de Entrada reservada para armazenar os e-mails de interesse  
+ATTACHMENT = 7 # Qual a posição do anexo dentro dos anexos do e-mail (tentativa e erro)
+FILE_NAME = 'enter the desire folder name here!' # Nome final do arquivo
+FILE_EXT = 'enter the extension of the file here!' # Extensão do arquivo (exemplo: xlsx)
 
 def get_last_refresh_date():
-    """Função criada para retornar a última data com dados da tabela tblBTGVols"""
+    """Função criada para retornar a última data de download do arquivo"""
     file_type = r'\*xlsx'
     files = glob.glob(PATH + file_type)
     max_file = max(files, key=os.path.getctime)
@@ -47,7 +49,7 @@ def download_btg_vols(init_date,final_date,holidays):    # sourcery skip: remove
       https://towardsdatascience.com/automatic-download-email-attachment-with-python-4aa59bc66c25
     """
     # Instanciando as variáveis estáticas
-    print("Iniciando a rotina de download do arquivo de Vols do BTG.\n")
+    print("Iniciando a rotina de download do arquivo.\n")
 
     # Criando contador de tempo de processamento
     processing_time = time.process_time()    
@@ -61,7 +63,7 @@ def download_btg_vols(init_date,final_date,holidays):    # sourcery skip: remove
     # Criando a conexão com outlook email
     outlook = win32com.client.Dispatch("Outlook.Application").GetNamespace("MAPI")
     # Filtrando a pasta de interesse (Levamos em cosideração que a pasta está dentro da caixa de entrada - 6)
-    print("Acessando a pasta dentro da caixa de entrada 'BTG_BACK'\n")
+    print("Acessando a pasta dentro da caixa de entrada.\n")
     inbox = outlook.GetDefaultFolder(6).folders(FOLDER)
     messages = inbox.Items
     message = messages.GetFirst()
@@ -74,23 +76,22 @@ def download_btg_vols(init_date,final_date,holidays):    # sourcery skip: remove
             current_date = message.senton.date()
             str_current_date  = current_date.strftime('%Y%m%d')
             # Caso o título do e-mail seja igual ao setado anteriormente acessaremos esse email
-            if  (TITTLE == current_subject) and (current_date in mydates): # and re.search(SENDER,current_sender) != None
+            if  (TITLE == current_subject) and (current_date in mydates): # and re.search(SENDER,current_sender) != None
                 print(f'Extraindo o arquvo {current_subject} referente ao dia {current_date}')
                 # Acessando os attachments do email de interesse 
                 attachments = message.Attachments
                 attachment = attachments.Item(2)
-                attachment_name = str(attachment).split('.')
                 # Fitrando nome do arquivo e extenção
-                file_name = f'{attachment_name[0]}_{str_current_date}.{attachment_name[1]}'
+                file_name = f'{FILE_NAME}_{str_current_date}.{FILE_EXT}'
                 # Salvando o arquivo no path indicado no início do script
                 file_path = os.path.join(PATH, file_name)
                 # Checando se o arquivo já existe na rede
                 check = os.path.exists(file_path)
                 if check==False:
                     attachment.SaveASFile(os.path.join(PATH, file_name))
-                    print('Arquivo salvo na pasta do gerencial com sucesso!\n')
+                    print('Arquivo salvo na pasta com sucesso!\n')
                 else:
-                    print('Arquivo já foi salvo na pasta do gerencial anteriormente.\n')
+                    print('Arquivo já foi salvo na pasta anteriormente.\n')
             # Acessando a próxima mensagem
             message = messages.GetNext()
         # Finalizando a rotina e mostrando o tempo de execução
@@ -122,24 +123,16 @@ def main():
             # Extraido as marcações para a data desejada   
             download_btg_vols(init_date,final_date,holidays)
             # Checando se o último arquivo foi atualizado, caso não retornaremos um erro
-            new_path_file = os.path.join(PATH, f"OPCGREGAS_{init_date.strftime('%Y%m%d')}.xlsx")
+            new_path_file = os.path.join(PATH, f"{FILE_NAME}_{init_date.strftime('%Y%m%d')}.{FILE_EXT}")
             check_new_file = os.path.exists(new_path_file)
             if check_new_file == True:
-                pm.send_teams_message(teams_conn,
-                                    title = "✅ Download arquivo BTG Vols realizado com sucesso!",
-                                    content = f"""Data: {today.strftime("%d/%m/%Y")}. \n\n Horário: {now.strftime("%H:%M:%S")}. \n\n Diretório: T:\GESTAO\MACRO\DEV\\5.GERENCIAL\Rotinas\\btg_downolader.py.""")
+                print("Download do arquivo realizado com sucesso!")
             else:
-                pm.send_teams_message(teams_conn,
-                                title = "❌ Erro no download do arquivo BTG Vols, checar manualmente.",
-                                content = f"""Erro: Arquivo ainda não foi liberado pelo BTG, rodar de novo mais tarde. \n\n\n Data: {today.strftime("%d/%m/%Y")}. \n\n Horário: {now.strftime("%H:%M:%S")}. \n\n Diretório: T:\GESTAO\MACRO\DEV\\5.GERENCIAL\Rotinas\\btg_downolader.py.""")
+                print("Erro no download do arquivo, checar manualmente.")
         else:
-            pm.send_teams_message(teams_conn,
-                                title = "✋ Download do arquivo BTG Vols já foi feito hoje!",
-                                content = f"""Data: {today.strftime("%d/%m/%Y")}. \n\n Horário: {now.strftime("%H:%M:%S")}. \n\n Diretório: T:\GESTAO\MACRO\DEV\\5.GERENCIAL\Rotinas\\btg_downolader.py.""")
+            print("Download já foi feito hoje!")
     except Exception as e:
-        pm.send_teams_message(teams_conn,
-                            title = "❌ Erro no download do arquivo BTG Vols, checar manualmente.",
-                            content = f"""Erro: {e}. \n\n\n Data: {today.strftime("%d/%m/%Y")}. \n\n Horário: {now.strftime("%H:%M:%S")}. \n\n Diretório: T:\GESTAO\MACRO\DEV\\5.GERENCIAL\Rotinas\\btg_downolader.py.""")
+        print("Erro no download do arquivo, checar manualmente.")
 
 if __name__ == '__main__':
     main()
